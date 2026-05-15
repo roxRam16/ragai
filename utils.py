@@ -2,8 +2,8 @@
 Utilidades para procesamiento de PDFs y conexión a MongoDB
 """
 import os
-import fitz  # PyMuPDF
-import pytesseract
+# import fitz  # PyMuPDF
+# import pytesseract
 from PIL import Image
 import io
 from typing import List, Dict, Tuple
@@ -12,33 +12,7 @@ from pymongo import MongoClient
 from openai import OpenAI
 
 
-def get_mongo_client():
-    """Conectar a MongoDB Atlas"""
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    uri = os.getenv("MONGODB_URI")
-    client = MongoClient(uri)
-    
-    # Verificar conexión
-    try:
-        client.admin.command('ping')
-        print("✓ Conexión exitosa a MongoDB Atlas")
-    except Exception as e:
-        print(f"✗ Error conectando a MongoDB: {e}")
-        raise
-    
-    return client
 
-
-def get_database():
-    """Obtener la base de datos configurada"""
-    from dotenv import load_dotenv
-    load_dotenv()
-    
-    client = get_mongo_client()
-    db_name = os.getenv("MONGODB_DATABASE", "lopsrm_rag")
-    return client[db_name]
 
 
 def detectar_pdf_escaneado(pdf_path: str) -> bool:
@@ -117,30 +91,63 @@ def procesar_pdf(pdf_path: str) -> Tuple[str, bool]:
         return texto, False
 
 
-def crear_chunks(texto: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
+def crear_chunks(texto: str, 
+                 chunk_size: int = 1000, 
+                 chunk_overlap: int = 200) -> List[str]:
     """
     Divide el texto en chunks con overlap
     Para documentos legales, idealmente deberías dividir por artículos/cláusulas
     Esta es una versión simple basada en caracteres
     """
+    parrafos = texto.split("\n\n")
+
     chunks = []
-    inicio = 0
-    
-    while inicio < len(texto):
-        fin = inicio + chunk_size
-        chunk = texto[inicio:fin]
-        
-        # Intentar cortar en punto final si es posible
-        if fin < len(texto):
-            ultimo_punto = chunk.rfind('.')
-            if ultimo_punto > chunk_size * 0.7:  # Si está en los últimos 30%
-                fin = inicio + ultimo_punto + 1
-                chunk = texto[inicio:fin]
-        
-        chunks.append(chunk.strip())
-        inicio = fin - chunk_overlap
-    
+    chunk_actual = ""
+
+    for parrafo in parrafos:
+
+        # limpiar
+        parrafo = parrafo.strip()
+
+        if not parrafo:
+            continue
+
+        # si agregarlo excede tamaño
+        if len(chunk_actual) + len(parrafo) > chunk_size:
+
+            chunks.append(chunk_actual.strip())
+
+            # overlap inteligente
+            overlap_text = chunk_actual[-chunk_overlap:]
+
+            chunk_actual = overlap_text + "\n\n" + parrafo
+
+        else:
+            chunk_actual += "\n\n" + parrafo
+
+    # último chunk
+    if chunk_actual.strip():
+        chunks.append(chunk_actual.strip())
+
     return chunks
+    # chunks = []
+    # inicio = 0
+    
+    # while inicio < len(texto):
+    #     fin = inicio + chunk_size
+    #     chunk = texto[inicio:fin]
+        
+    #     # Intentar cortar en punto final si es posible
+    #     if fin < len(texto):
+    #         ultimo_punto = chunk.rfind('.')
+    #         if ultimo_punto > chunk_size * 0.7:  # Si está en los últimos 30%
+    #             fin = inicio + ultimo_punto + 1
+    #             chunk = texto[inicio:fin]
+        
+    #     chunks.append(chunk.strip())
+    #     inicio = fin - chunk_overlap
+    
+    # return chunks
 
 
 def generar_embedding(texto: str, modelo: str = "text-embedding-3-small") -> List[float]:
@@ -171,24 +178,97 @@ def guardar_en_mongodb(chunks: List[str], metadata: Dict, db) -> int:
     collection = db[collection_name]
     
     documentos = []
-    
+
     for idx, chunk in enumerate(chunks):
-        # Generar embedding
+
         embedding = generar_embedding(chunk)
-        
-        # Crear documento
+
         doc = {
             "texto": chunk,
             "embedding": embedding,
             "metadata": {
                 **metadata,
                 "chunk_index": idx,
+                "longitud_chunk": len(chunk),
                 "fecha_ingestion": datetime.utcnow().isoformat()
             }
         }
-        
+
         documentos.append(doc)
+    
+    # for idx, chunk in enumerate(chunks):
+    #     # Generar embedding
+    #     embedding = generar_embedding(chunk)
+        
+    #     # Crear documento
+    #     doc = {
+    #         "texto": chunk,
+    #         "embedding": embedding,
+    #         "metadata": {
+    #             **metadata,
+    #             "chunk_index": idx,
+    #             "fecha_ingestion": datetime.utcnow().isoformat()
+    #         }
+    #     }
+        
+    #     documentos.append(doc)
     
     # Insertar en batch
     result = collection.insert_many(documentos)
     return len(result.inserted_ids)
+
+def buscar_chunks_similares(
+    pregunta: str,
+    db,
+    top_k: int = 5,
+    filtro_tipo: str = None
+):
+    """
+    Busca chunks similares usando MongoDB Vector Search
+    """
+
+    from dotenv import load_dotenv
+    load_dotenv()
+
+    collection_name = os.getenv(
+        "MONGODB_COLLECTION",
+        "documentos_legales"
+    )
+
+    collection = db[collection_name]
+
+    # Generar embedding de la pregunta
+    embedding_pregunta = generar_embedding(pregunta)
+
+    # Pipeline vectorial
+    pipeline = [
+        {
+            "$vectorSearch": {
+                "index": "vector_index",
+                "path": "embedding",
+                "queryVector": embedding_pregunta,
+                "numCandidates": 100,
+                "limit": top_k
+            }
+        },
+        {
+            "$project": {
+                "_id": 0,
+                "texto": 1,
+                "metadata": 1,
+                "score": {
+                    "$meta": "vectorSearchScore"
+                }
+            }
+        }
+    ]
+
+    # Filtro opcional
+    if filtro_tipo:
+        pipeline[0]["$vectorSearch"]["filter"] = {
+            "metadata.tipo_documento": filtro_tipo
+        }
+
+    resultados = list(collection.aggregate(pipeline))
+
+    return resultados
