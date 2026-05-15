@@ -54,9 +54,9 @@ Edita `.env` con tus credenciales:
 
 ```env
 # MongoDB Atlas
-MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DATABASE=lopsrm_rag
-MONGODB_COLLECTION=documentos_legales
+MONGODB_URI=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+MONGODB_DATABASE=XXX
+MONGODB_COLLECTION=XXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # OpenAI (para embeddings)
 OPENAI_API_KEY=sk-tu-api-key-aqui
