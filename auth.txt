@@ -1,0 +1,73 @@
+import bcrypt
+from datetime import datetime
+
+
+def hash_password(password: str) -> str:
+    """
+    Genera hash seguro de contraseña
+    """
+
+    salt = bcrypt.gensalt()
+
+    hashed = bcrypt.hashpw(
+        password.encode('utf-8'),
+        salt
+    )
+
+    return hashed.decode('utf-8')
+
+
+def verify_password(password: str, hashed_password: str) -> bool:
+    """
+    Verifica contraseña
+    """
+
+    return bcrypt.checkpw(
+        password.encode('utf-8'),
+        hashed_password.encode('utf-8')
+    )
+
+
+def registrar_usuario(db, username: str, password: str):
+
+    usuarios = db["usuarios"]
+
+    # Verificar si ya existe
+    existente = usuarios.find_one({
+        "username": username
+    })
+
+    if existente:
+        return False, "El usuario ya existe"
+
+    hashed = hash_password(password)
+
+    usuarios.insert_one({
+        "username": username,
+        "password": hashed,
+        "created_at": datetime.utcnow().isoformat()
+    })
+
+    return True, "Usuario registrado"
+
+
+def login_usuario(db, username: str, password: str):
+
+    usuarios = db["usuarios"]
+
+    usuario = usuarios.find_one({
+        "username": username
+    })
+
+    if not usuario:
+        return False, "Usuario no encontrado"
+
+    valido = verify_password(
+        password,
+        usuario["password"]
+    )
+
+    if not valido:
+        return False, "Contraseña incorrecta"
+
+    return True, usuario
