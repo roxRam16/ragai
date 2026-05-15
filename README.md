@@ -1,4 +1,4 @@
-# Sistema RAG para detección de incumplimientos LOPSRM
+# Sistema RAG para detección de incumplimientos de contratos
 
 Sistema de gestión de documentos legales con base de datos vectorial para detectar incumplimientos en contratos de obra pública.
 
@@ -54,9 +54,9 @@ Edita `.env` con tus credenciales:
 
 ```env
 # MongoDB Atlas
-MONGODB_URI=mongodb+srv://usuario:password@cluster.mongodb.net/?retryWrites=true&w=majority
-MONGODB_DATABASE=lopsrm_rag
-MONGODB_COLLECTION=documentos_legales
+MONGODB_URI=XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+MONGODB_DATABASE=XXX
+MONGODB_COLLECTION=XXXXXXXXXXXXXXXXXXXXXXXXXX
 
 # OpenAI (para embeddings)
 OPENAI_API_KEY=sk-tu-api-key-aqui
