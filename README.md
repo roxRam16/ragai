@@ -1,4 +1,4 @@
-# Sistema RAG para detección de incumplimientos LOPSRM
+# Sistema RAG para detección de incumplimientos de contratos
 
 Sistema de gestión de documentos legales con base de datos vectorial para detectar incumplimientos en contratos de obra pública.
 
