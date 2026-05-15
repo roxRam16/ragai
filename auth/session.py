@@ -1,24 +1,15 @@
-import extra_streamlit_components as stx
+# auth/session.py
 import streamlit as st
 
-
-cookie_manager = stx.CookieManager()
-
-
 def guardar_sesion(username):
-
-    cookie_manager.set(
-        "rag_user",
-        username,
-        expires_at=None
-    )
+    st.session_state.authenticated = True
+    st.session_state.username = username
 
 
 def obtener_sesion():
-
-    return cookie_manager.get("rag_user")
+    return st.session_state.get("username", None)
 
 
 def cerrar_sesion():
-
-    cookie_manager.delete("rag_user")
+    st.session_state.authenticated = False
+    st.session_state.username = None

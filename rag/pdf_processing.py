@@ -3,10 +3,13 @@ import pytesseract
 
 from PIL import Image
 
-pytesseract.pytesseract.tesseract_cmd = (
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe"
-)
+import sys
 
+if sys.platform == "win32":
+    pytesseract.pytesseract.tesseract_cmd = (
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe"
+    )
+    
 
 def procesar_pdf(pdf_path):
 

@@ -64,3 +64,17 @@ def render_sidebar(username):
                     st.rerun()
 
         st.markdown("---")
+
+        # =====================================================
+        # VERSION
+        # =====================================================
+        st.markdown("""
+        <p style="
+            color: #4B5563;
+            font-size: 12px;
+            text-align: center;
+            margin-top: 20px;
+        ">
+            v0.1.0
+        </p>
+        """, unsafe_allow_html=True)

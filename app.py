@@ -1,4 +1,6 @@
 import streamlit as st
+import asyncio
+import sys
 
 from database.mongodb import get_database
 
@@ -18,6 +20,14 @@ from views.admin import render_admin_page
 from views.settings import render_settings_page
 from views.upload_fuentes import render_upload_fuentes_page
 from views.upload_contratos import render_upload_contratos_page
+
+
+
+# Silenciar el error de asyncio en Windows
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(
+        asyncio.WindowsSelectorEventLoopPolicy()
+    )
 
 # =========================================================
 # CONFIG

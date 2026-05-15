@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from pymongo import MongoClient
 from datetime import datetime
+from openai import OpenAI
 
 from rag.embeddings import generar_embedding
 
@@ -83,40 +84,31 @@ def guardar_chunks(
 ):
 
     db = get_database()
+    collection = db["chunks"]
 
-    collection = db["documentos"]
+    # Una sola llamada con toda la lista
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    response = client.embeddings.create(
+        model="text-embedding-3-small",
+        input=chunks
+    )
+
+    embeddings = [item.embedding for item in response.data]
 
     documentos = []
 
-    for i, chunk in enumerate(chunks):
-
-        try:
-
-            embedding = generar_embedding(chunk)
-
-            documento = {
-
-                "texto": chunk,
-
-                "embedding": embedding,
-
-                "chunk_index": i,
-
-                "longitud_chunk": len(chunk),
-
-                "created_at": datetime.utcnow(),
-
-                "metadata": metadata
-            }
-
-            documentos.append(documento)
-
-        except Exception as e:
-
-            print(f"❌ Error generando embedding: {e}")
+    for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+        documentos.append({
+            "texto": chunk,
+            "embedding": embedding,
+            "chunk_index": i,
+            "longitud_chunk": len(chunk),
+            "created_at": datetime.utcnow(),
+            "metadata": metadata
+        })
 
     if documentos:
-
         collection.insert_many(documentos)
 
     return len(documentos)
@@ -130,7 +122,7 @@ def guardar_documento_vectorial(documento):
 
     db = get_database()
 
-    collection = db["documentos"]
+    collection = db["chunks"]
 
     result = collection.insert_one(documento)
 
@@ -144,19 +136,15 @@ def guardar_documento_vectorial(documento):
 def obtener_documentos():
 
     db = get_database()
-
     collection = db["documentos"]
-
     documentos = collection.find(
         {},
         {
             "metadata.nombre_archivo": 1,
-            "metadata.tipo_documento": 1,
-            "metadata.fecha_documento": 1,
+            "metadata.fue_ocr": 1,
             "chunk_index": 1
         }
     ).limit(100)
-
     return list(documentos)
 
 
@@ -168,7 +156,7 @@ def eliminar_documento(nombre_archivo):
 
     db = get_database()
 
-    collection = db["documentos"]
+    collection = db["chunks"]
 
     result = collection.delete_many({
         "metadata.nombre_archivo": nombre_archivo
@@ -185,7 +173,7 @@ def contar_documentos():
 
     db = get_database()
 
-    collection = db["documentos"]
+    collection = db["chunks"]
 
     return collection.count_documents({})
 
@@ -198,7 +186,7 @@ def buscar_documentos_por_tipo(tipo_documento):
 
     db = get_database()
 
-    collection = db["documentos"]
+    collection = db["chunks"]
 
     documentos = collection.find({
 
@@ -217,7 +205,7 @@ def obtener_nombres_documentos():
 
     db = get_database()
 
-    collection = db["documentos"]
+    collection = db["chunks"]
 
     nombres = collection.distinct(
         "metadata.nombre_archivo"
